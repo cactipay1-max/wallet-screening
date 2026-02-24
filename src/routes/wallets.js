@@ -27,12 +27,17 @@ async function runScreening(chain, address, client) {
     return {
       status: 'blacklisted',
       reason: 'Address is in internal blacklist',
-      // поля под screening_logs:
       direct_match: true,
       one_hop_match: false,
       matched_blacklist_address: addr,
       raw_tx_count: 0,
-      details: { blacklist: bl.rows[0] },
+      details: {
+        blacklist: bl.rows[0],
+        txs_fetched: { normal: 0, token: 0 },
+        counterparties_total: 0,
+        counterparties_sample: [],
+        one_hop_matches: [],
+      },
     };
   }
 
@@ -45,7 +50,13 @@ async function runScreening(chain, address, client) {
       one_hop_match: false,
       matched_blacklist_address: null,
       raw_tx_count: 0,
-      details: { flags: [] },
+      details: {
+        flags: [],
+        txs_fetched: { normal: 0, token: 0 },
+        counterparties_total: 0,
+        counterparties_sample: [],
+        one_hop_matches: [],
+      },
     };
   }
 
@@ -55,21 +66,43 @@ async function runScreening(chain, address, client) {
     getTokenTxs(addr, limit),
   ]);
 
-  // 3) простые эвристики
+  // 3) Extract counterparties from normal txs (used for heuristics)
   const outgoing = txs.filter((t) => (t.from || '').toLowerCase() === addr);
   const incoming = txs.filter((t) => (t.to || '').toLowerCase() === addr);
 
-  const counterparties = txs
+  const normalCounterparties = txs
     .map((t) => {
       const from = (t.from || '').toLowerCase();
       const to = (t.to || '').toLowerCase();
       return from === addr ? to : from;
     })
-    .filter(Boolean);
+    .filter((a) => a && a !== addr);
 
-  const uniqCounterparties = uniqCount(counterparties);
+  const uniqCounterparties = uniqCount(normalCounterparties);
 
-  // “burst”: 10 исходящих за 30 минут
+  // 4) One-hop: merge counterparties from both normal and token txs, then query blacklist
+  const tokenCounterparties = tokentxs
+    .map((t) => {
+      const from = (t.from || '').toLowerCase();
+      const to = (t.to || '').toLowerCase();
+      return from === addr ? to : from;
+    })
+    .filter((a) => a && a !== addr);
+
+  const allCounterparties = [...new Set([...normalCounterparties, ...tokenCounterparties])];
+
+  let oneHopMatches = [];
+  if (allCounterparties.length > 0) {
+    const { rows: blMatches } = await client.query(
+      `SELECT address, category, note
+       FROM blacklist_wallets
+       WHERE chain = $1 AND address = ANY($2::text[])`,
+      [chain, allCounterparties]
+    );
+    oneHopMatches = blMatches;
+  }
+
+  // 5) Heuristic flags
   let burst = false;
   if (outgoing.length >= 10) {
     const times = outgoing
@@ -87,17 +120,28 @@ async function runScreening(chain, address, client) {
 
   const flags = [];
   if (burst) flags.push('Outgoing burst: >=10 tx within 30 minutes');
-  if (uniqCounterparties >= 25) flags.push('Many counterparties in last txs: >=25');
+  if (uniqCounterparties >= 25) flags.push(`Many counterparties: ${uniqCounterparties}`);
 
-  const status = flags.length ? 'flagged' : 'clean';
+  // 6) Determine final status + reason
+  let status, reason;
+  const reasonParts = [];
+  if (oneHopMatches.length > 0) reasonParts.push('One-hop match with internal blacklist');
+  if (flags.length) reasonParts.push('Heuristics triggered');
+
+  if (reasonParts.length > 0) {
+    status = 'flagged';
+    reason = reasonParts.join('; ');
+  } else {
+    status = 'clean';
+    reason = 'No issues detected';
+  }
 
   return {
     status,
-    reason: flags.length ? 'Heuristics triggered' : 'No issues detected',
-    // поля под screening_logs (пока one-hop не делаем)
+    reason,
     direct_match: false,
-    one_hop_match: false,
-    matched_blacklist_address: null,
+    one_hop_match: oneHopMatches.length > 0,
+    matched_blacklist_address: oneHopMatches.length > 0 ? oneHopMatches[0].address : null,
     raw_tx_count: txs.length,
     details: {
       txs_count: txs.length,
@@ -105,6 +149,10 @@ async function runScreening(chain, address, client) {
       outgoing_count: outgoing.length,
       incoming_count: incoming.length,
       uniq_counterparties: uniqCounterparties,
+      counterparties_total: allCounterparties.length,
+      counterparties_sample: allCounterparties.slice(0, 30),
+      one_hop_matches: oneHopMatches,
+      txs_fetched: { normal: txs.length, token: tokentxs.length },
       flags,
     },
   };
@@ -126,6 +174,8 @@ router.post('/', async (req, res) => {
       title: 'Dashboard',
       wallets,
       error: 'Invalid address: must start with 0x and be exactly 42 characters.',
+      formAddress: address,
+      formChain: chain,
     });
   }
 
@@ -168,13 +218,9 @@ router.post('/', async (req, res) => {
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
 
-    // Always log the full PG error so the real cause is visible in server logs.
-    console.error('[POST /wallets] DB error:', {
-      message: err.message,
-      code: err.code,
-      constraint: err.constraint,
-      detail: err.detail,
-    });
+    // Always log at warn level; DEBUG_SQL adds full diagnostic.
+    console.error('[POST /wallets] DB error:', err.message);
+    db.debugLog('POST /wallets', err);
 
     // 23505 = unique_violation on wallets(address, chain): wallet already exists.
     // Re-run screening on the existing record and redirect to it.
@@ -212,6 +258,7 @@ router.post('/', async (req, res) => {
         } catch (rescreenErr) {
           await rescreenClient.query('ROLLBACK').catch(() => {});
           console.error('[POST /wallets] re-screen error:', rescreenErr.message);
+          db.debugLog('POST /wallets re-screen', rescreenErr);
         } finally {
           rescreenClient.release();
         }

@@ -83,6 +83,24 @@
       <dd>
         <% if (log.one_hop_match) { %>
           <span class="badge badge-flagged">Yes</span>
+          <%
+            const oneHopMatches = Array.isArray(d.one_hop_matches) ? d.one_hop_matches : [];
+          %>
+          <% if (oneHopMatches.length > 0) { %>
+            <ul style="margin:8px 0 0;padding-left:18px;list-style:disc">
+              <% oneHopMatches.forEach(function(m) { %>
+              <li style="margin-bottom:4px">
+                <span class="mono"><%= m.address %></span>
+                <% if (m.category) { %>
+                  &nbsp;<span class="badge badge-blacklisted"><%= m.category %></span>
+                <% } %>
+                <% if (m.note) { %>
+                  &nbsp;<span class="meta"><%= m.note %></span>
+                <% } %>
+              </li>
+              <% }); %>
+            </ul>
+          <% } %>
         <% } else { %>
           <span class="badge badge-clean">No</span>
         <% } %>
@@ -95,8 +113,13 @@
       <dt>Outgoing / Incoming</dt>
       <dd><%= d.outgoing_count %> / <%= d.incoming_count %></dd>
 
-      <dt>Unique Counterparties</dt>
-      <dd><%= d.uniq_counterparties %></dd>
+      <dt>Counterparties</dt>
+      <dd>
+        <%= d.counterparties_total !== undefined ? d.counterparties_total : d.uniq_counterparties %> unique
+        <% if (d.counterparties_total !== undefined && d.uniq_counterparties !== d.counterparties_total) { %>
+          &nbsp;<span class="meta">(<%=  d.uniq_counterparties %> from normal txs)</span>
+        <% } %>
+      </dd>
       <% } else if (log.raw_tx_count !== null && log.raw_tx_count !== undefined) { %>
       <dt>Raw Tx Count</dt>
       <dd><%= log.raw_tx_count %></dd>

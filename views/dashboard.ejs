@@ -17,14 +17,15 @@
           required
           autocomplete="off"
           spellcheck="false"
+          value="<%= typeof formAddress !== 'undefined' ? formAddress : '' %>"
         />
       </div>
       <div class="form-group">
         <label>Chain</label>
         <select name="chain">
-          <option value="ethereum">Ethereum</option>
-          <option value="bsc">BSC</option>
-          <option value="polygon">Polygon</option>
+          <option value="ethereum" <%= (typeof formChain !== 'undefined' && formChain === 'ethereum') || typeof formChain === 'undefined' ? 'selected' : '' %>>Ethereum</option>
+          <option value="bsc"      <%= typeof formChain !== 'undefined' && formChain === 'bsc'      ? 'selected' : '' %>>BSC</option>
+          <option value="polygon"  <%= typeof formChain !== 'undefined' && formChain === 'polygon'  ? 'selected' : '' %>>Polygon</option>
         </select>
       </div>
       <div class="form-group">

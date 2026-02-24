@@ -28,4 +28,19 @@ pool.healthCheck = async function () {
   }
 };
 
+// Log DB errors with extra context when DEBUG_SQL=true.
+// Safe to call in every catch block — no-ops in production unless the flag is set.
+pool.debugLog = function (context, err) {
+  if (process.env.DEBUG_SQL === 'true') {
+    console.error(`[DB DEBUG][${context}]`, {
+      message: err.message,
+      code: err.code,
+      constraint: err.constraint,
+      detail: err.detail,
+      where: err.where,
+      hint: err.hint,
+    });
+  }
+};
+
 module.exports = pool;
