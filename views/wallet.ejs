@@ -1,0 +1,110 @@
+<p style="margin-bottom:16px"><a href="/">&larr; Back to Dashboard</a></p>
+
+<% if (error) { %>
+  <div class="error"><%= error %></div>
+<% } %>
+
+<% if (wallet) { %>
+<h1>Wallet Detail</h1>
+
+<div class="card">
+  <h2>
+    <span class="mono" style="font-size:15px"><%= wallet.address %></span>
+    &nbsp;
+    <span class="badge badge-<%= wallet.status %>"><%= wallet.status %></span>
+  </h2>
+  <br/>
+  <dl class="dl">
+    <dt>Chain</dt>
+    <dd><%= wallet.chain %></dd>
+
+    <dt>Status</dt>
+    <dd><span class="badge badge-<%= wallet.status %>"><%= wallet.status %></span></dd>
+
+    <dt>Last Checked</dt>
+    <dd>
+      <%= wallet.last_checked_at
+          ? new Date(wallet.last_checked_at).toLocaleString()
+          : '—' %>
+    </dd>
+
+    <dt>Added</dt>
+    <dd class="meta"><%= new Date(wallet.created_at).toLocaleString() %></dd>
+
+    <dt>ID</dt>
+    <dd class="mono meta"><%= wallet.id %></dd>
+  </dl>
+</div>
+
+<div class="card">
+  <h2>Last Screening Log</h2>
+  <% if (!log) { %>
+    <p class="empty">No screening log found.</p>
+  <% } else { %>
+    <%
+      const d = log.details || {};
+      const flags = d.flags || [];
+    %>
+    <dl class="dl">
+      <dt>Checked At</dt>
+      <dd><%= new Date(log.checked_at).toLocaleString() %></dd>
+
+      <dt>Result</dt>
+      <dd>
+        <% const s = log.status || (log.direct_match ? 'blacklisted' : 'clean'); %>
+        <span class="badge badge-<%= s %>"><%= s %></span>
+      </dd>
+
+      <dt>Reason</dt>
+      <dd><%= log.reason || '—' %></dd>
+
+      <% if (flags.length > 0) { %>
+      <dt>Flags</dt>
+      <dd>
+        <ul style="margin:0;padding-left:18px">
+          <% flags.forEach(f => { %><li><%= f %></li><% }) %>
+        </ul>
+      </dd>
+      <% } %>
+
+      <dt>Direct Blacklist Match</dt>
+      <dd>
+        <% if (log.direct_match) { %>
+          <span class="badge badge-blacklisted">Yes</span>
+          <% if (log.matched_blacklist_address) { %>
+            &nbsp;<span class="mono meta"><%= log.matched_blacklist_address %></span>
+          <% } %>
+        <% } else { %>
+          <span class="badge badge-clean">No</span>
+        <% } %>
+      </dd>
+
+      <dt>One-Hop Match</dt>
+      <dd>
+        <% if (log.one_hop_match) { %>
+          <span class="badge badge-flagged">Yes</span>
+        <% } else { %>
+          <span class="badge badge-clean">No</span>
+        <% } %>
+      </dd>
+
+      <% if (d.txs_count !== undefined) { %>
+      <dt>Txs Fetched</dt>
+      <dd><%= d.txs_count %> normal / <%= d.token_txs_count %> token</dd>
+
+      <dt>Outgoing / Incoming</dt>
+      <dd><%= d.outgoing_count %> / <%= d.incoming_count %></dd>
+
+      <dt>Unique Counterparties</dt>
+      <dd><%= d.uniq_counterparties %></dd>
+      <% } else if (log.raw_tx_count !== null && log.raw_tx_count !== undefined) { %>
+      <dt>Raw Tx Count</dt>
+      <dd><%= log.raw_tx_count %></dd>
+      <% } %>
+
+      <dt>Log ID</dt>
+      <dd class="mono meta"><%= log.id %></dd>
+    </dl>
+  <% } %>
+</div>
+<% } %>
