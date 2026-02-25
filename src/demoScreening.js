@@ -95,7 +95,7 @@ async function runDemoScreening(chain, address, client) {
   }
 
   return {
-    status: 'clean', reason: 'No blacklist linkage found in demo graph',
+    status: 'clean', reason: 'No blacklist linkage found',
     direct_match: false, one_hop_match: false,
     matched_blacklist_address: null, raw_tx_count: 0,
     details: { hop1_checked: hop1.length, hop2_checked: hop2Checked, paths: [], limits },
