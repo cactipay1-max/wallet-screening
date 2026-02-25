@@ -1,11 +1,32 @@
 require('dotenv').config();
 
+const basicAuth = require('express-basic-auth');
 const express = require('express');
 const expressLayouts = require('express-ejs-layouts');
 const path = require('path');
 const db = require('./db');
 
 const app = express();
+
+const BASIC_AUTH_ENABLED = process.env.BASIC_AUTH_ENABLED === '1';
+
+if (BASIC_AUTH_ENABLED) {
+  const user = process.env.BASIC_AUTH_USER || 'admin';
+  const pass = process.env.BASIC_AUTH_PASS || '';
+
+  if (!pass) {
+    console.warn('[auth] BASIC_AUTH_PASS is empty — refusing to start');
+    process.exit(1);
+  }
+
+  app.use(
+    basicAuth({
+      users: { [user]: pass },
+      challenge: true,
+      realm: 'Wallet Screening',
+    })
+  );
+}
 
 // View engine
 app.set('view engine', 'ejs');
