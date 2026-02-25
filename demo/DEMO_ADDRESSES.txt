@@ -1,0 +1,44 @@
+# DEMO MODE — internal use only. NOT shown in UI.
+# Before screening: POST /admin/seed-demo to seed the 7 blacklist wallets.
+
+# ============================================================
+# BLACKLIST (direct match) — screen any of these -> BLACKLISTED
+# ============================================================
+0xd05c5e04fb0f098e49e46b1d2629d20ace0dd012   (Case 1 BL)
+0x94932baf91959b75818a9a1acc0e2d9ec34858a8   (Case 2 BL)
+0xa6082264a789a52af17084ff9797d952240891f4   (Case 3 BL)
+0xdd3d72c53ff982ff59853da71158bf1538b3ceee   (Case 4 BL — no hop chain)
+0x6eab2d891d1eb89b06aa75d6a2a4420a6668259f   (Case 5 BL — no hop chain)
+0xd14adf022e913a7a329741f994f37162a965fb00   (Case 6 BL)
+0xedf1ab977f28b40d3b071de561d2e8376febde9d   (Case 7 BL)
+
+# ============================================================
+# 1-HOP TESTS (screen these) — screen VIA -> FLAGGED 1-HOP
+# path: VIA -> BL
+# ============================================================
+0x2476a91156c907ad022b9b920fe8a8c198c7a33f   (Case 1 VIA -> BL: d05c5e...)
+0x20fdfebcc5ccedc1520e7bcf2c3f4cb359ce9d00   (Case 2 VIA -> BL: 94932b...)
+0xe59c725f7277fdb1d97cca1bf466ae66335d03a1   (Case 3 VIA -> BL: a60822...)
+0x6497e8e7ef1524ed1f5cc206fed3f75658f67d98   (Case 6 VIA -> BL: d14adf...)
+0xb4c2427ab2db054b0697dbd6d9fc48feda42195a   (Case 7 VIA -> BL: edf1ab...)
+
+# ============================================================
+# 2-HOP TESTS (screen these) — screen ROOT -> FLAGGED 2-HOP
+# path: ROOT -> VIA -> BL
+# ============================================================
+0x12a0f0db4578b108f6669320f067aa97e2b1d899   (Case 1 ROOT -> 2476a9... -> d05c5e...)
+0x949001485c58cbde2b07ce7dbc02ef4e11a358a8   (Case 2 ROOT -> 20fdfe... -> 94932b...)
+0x6f30dc7a5f8e3bb1ec0c0b5dc72dcbfc1662166a   (Case 3 ROOT -> e59c72... -> a60822...)
+0x8f093a542f6866216b4009fb1c4c6ade58722ef8   (Case 6 ROOT -> 6497e8... -> d14adf...)
+0xf40d3eadd3f860a0b27a9691b9c29950432078b6   (Case 7 ROOT -> b4c242... -> edf1ab...)
+
+# ============================================================
+# CLEAN TEST — screen this -> CLEAN (not in graph or blacklist)
+# ============================================================
+0xc0ffee00c0ffee00c0ffee00c0ffee00c0ffee00
+
+# Expected results:
+#   Screen any BLACKLIST address  ->  BLACKLISTED (direct)
+#   Screen any VIA address        ->  FLAGGED (1-hop)  path: VIA -> BL
+#   Screen any ROOT address       ->  FLAGGED (2-hop)  path: ROOT -> VIA -> BL
+#   Screen 0xc0ffee...            ->  CLEAN

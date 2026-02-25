@@ -72,7 +72,18 @@
         <tr>
           <td class="mono"><%= e.address %></td>
           <td><%= e.chain %></td>
-          <td><span class="badge badge-blacklisted"><%= e.category %></span></td>
+          <td>
+            <form method="POST" action="/blacklist/<%= e.id %>/category" style="margin:0;display:flex;align-items:center;gap:6px">
+              <select name="category" style="font-size:12px;padding:3px 6px;border:1px solid #d1d5db;border-radius:4px;background:#fff">
+                <option value="internal"  <%- (e.category||'').toLowerCase() === 'internal'  ? 'selected' : '' %>>Internal</option>
+                <option value="sanctions" <%- (e.category||'').toLowerCase() === 'sanctions' ? 'selected' : '' %>>Sanctions</option>
+                <option value="scam"      <%- (e.category||'').toLowerCase() === 'scam'      ? 'selected' : '' %>>Scam</option>
+                <option value="mixer"     <%- (e.category||'').toLowerCase() === 'mixer'     ? 'selected' : '' %>>Mixer</option>
+                <option value="other"     <%- (e.category||'').toLowerCase() === 'other'     ? 'selected' : '' %>>Other</option>
+              </select>
+              <button type="submit" style="font-size:11px;padding:3px 8px;background:#f3f4f6;color:#374151;border:1px solid #d1d5db;border-radius:4px;cursor:pointer;font-weight:600">Save</button>
+            </form>
+          </td>
           <td class="meta"><%= e.note || '—' %></td>
           <td class="meta"><%= new Date(e.created_at).toLocaleString() %></td>
           <td>

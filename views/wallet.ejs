@@ -5,14 +5,17 @@
     return null;
   }
   function addrPill(chain, addr) {
-    if (!addr) return '<span class="addr-pill">—</span>';
+    if (!addr) return '<span class="addr-chip">—</span>';
     var url = etherscanUrl(chain, addr);
     if (url) {
-      return '<a class="addr-pill" href="' + url + '" target="_blank" rel="noopener noreferrer">' + addr + '</a>';
+      return '<a class="addr-chip" href="' + url + '" target="_blank" rel="noopener noreferrer">' + addr + '</a>';
     }
-    return '<span class="addr-pill">' + addr + '</span>';
+    return '<span class="addr-chip">' + addr + '</span>';
   }
 %>
+<style>
+  .dl dd { font-size: 13px; }
+</style>
 <p style="margin-bottom:16px"><a href="/">&larr; Back to Dashboard</a></p>
 
 <% if (error) { %>
@@ -114,10 +117,10 @@
               <div class="hop-path">
                 <%- addrPill(wallet.chain, p.from||'') %>
                 <% if (p.hop === 2) { %>
-                  <span class="hop-arrow">→</span>
+                  <span class="arrow">→</span>
                   <%- addrPill(wallet.chain, p.via||'') %>
                 <% } %>
-                <span class="hop-arrow">→</span>
+                <span class="arrow">→</span>
                 <%- addrPill(wallet.chain, p.hit||'') %>
                 <% if (p.category) { %>
                   <span class="badge badge-blacklisted"><%= p.category %></span>
@@ -126,7 +129,9 @@
             <% }); %>
           </div>
         <% } %>
+        <% if (!demoMode) { %>
         <div class="meta hop-counts">hop1 checked: <%= hop1Chk %>&nbsp;&nbsp;hop2 checked: <%= hop2Chk %></div>
+        <% } %>
       </dd>
 
       <% if (d.txs_count !== undefined) { %>
@@ -135,7 +140,7 @@
 
       <dt>Outgoing / Incoming</dt>
       <dd><%= d.outgoing_count %> / <%= d.incoming_count %></dd>
-      <% } else if (log.raw_tx_count !== null && log.raw_tx_count !== undefined) { %>
+      <% } else if (!demoMode && log.raw_tx_count !== null && log.raw_tx_count !== undefined) { %>
       <dt>Raw Tx Count</dt>
       <dd><%= log.raw_tx_count %></dd>
       <% } %>

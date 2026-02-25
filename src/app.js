@@ -33,6 +33,41 @@ app.use('/', require('./routes/dashboard'));
 app.use('/wallets', require('./routes/wallets'));
 app.use('/blacklist', require('./routes/blacklist'));
 
+// Admin seed — only active when DEMO_MODE=1
+if (process.env.DEMO_MODE === '1') {
+  const DEMO_BLACKLIST = [
+    '0xd05c5e04fb0f098e49e46b1d2629d20ace0dd012',
+    '0x94932baf91959b75818a9a1acc0e2d9ec34858a8',
+    '0xa6082264a789a52af17084ff9797d952240891f4',
+    '0xdd3d72c53ff982ff59853da71158bf1538b3ceee',
+    '0x6eab2d891d1eb89b06aa75d6a2a4420a6668259f',
+    '0xd14adf022e913a7a329741f994f37162a965fb00',
+    '0xedf1ab977f28b40d3b071de561d2e8376febde9d',
+  ];
+  app.post('/admin/seed-demo', async (req, res) => {
+    const token = req.headers['x-admin-token'];
+    if (!token || token !== process.env.ADMIN_TOKEN) {
+      return res.status(401).json({ ok: false, error: 'Unauthorized' });
+    }
+    try {
+      for (const address of DEMO_BLACKLIST) {
+        await db.query(
+          `INSERT INTO blacklist_wallets (address, chain, category, note)
+           SELECT $1, 'ethereum', 'SANCTIONS', 'demo-seed'
+           WHERE NOT EXISTS (
+             SELECT 1 FROM blacklist_wallets WHERE address = $1 AND chain = 'ethereum'
+           )`,
+          [address]
+        );
+      }
+      res.json({ ok: true, seeded: DEMO_BLACKLIST });
+    } catch (err) {
+      console.error('[seed-demo]', err.message);
+      res.status(500).json({ ok: false, error: err.message });
+    }
+  });
+}
+
 // 404
 app.use((req, res) => {
   res.status(404).send('Not found');
@@ -74,6 +109,14 @@ async function runMigrations() {
     await client.query(`
       CREATE UNIQUE INDEX IF NOT EXISTS idx_wallets_address_chain
         ON wallets (address, chain)
+    `);
+    // migrate_003: expand wallets.status to include 'inconclusive'
+    await client.query(`
+      ALTER TABLE wallets DROP CONSTRAINT IF EXISTS wallets_status_check
+    `);
+    await client.query(`
+      ALTER TABLE wallets ADD CONSTRAINT wallets_status_check
+        CHECK (status IN ('clean','flagged','blacklisted','error','inconclusive'))
     `);
     console.log('[migrations] OK');
   } catch (err) {

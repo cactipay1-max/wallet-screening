@@ -67,6 +67,21 @@ router.post('/', async (req, res) => {
   }
 });
 
+// POST /blacklist/:id/category
+const VALID_CATEGORIES = ['internal', 'sanctions', 'scam', 'mixer', 'other'];
+router.post('/:id/category', async (req, res) => {
+  const category = (req.body.category || '').trim().toLowerCase();
+  if (!VALID_CATEGORIES.includes(category)) {
+    return res.status(400).send('Invalid category.');
+  }
+  try {
+    await db.query('UPDATE blacklist_wallets SET category = $1 WHERE id = $2', [category, req.params.id]);
+  } catch (err) {
+    console.error('[blacklist CATEGORY]', err.message);
+  }
+  res.redirect('/blacklist');
+});
+
 // POST /blacklist/:id/delete
 router.post('/:id/delete', async (req, res) => {
   try {

@@ -1,7 +1,7 @@
 # Wallet Screening — Internal MVP
 
-Internal tool for screening Ethereum wallet addresses against a blacklist.
-Supports direct match and one-hop counterparty match.
+Internal tool for screening Ethereum wallet addresses against an internal blacklist.
+Supports direct match, one-hop counterparty match, and multi-hop BFS (Stage 3).
 
 ## Prerequisites
 
@@ -30,8 +30,17 @@ PORT=3000
 ETHERSCAN_API_KEY=your_key_here
 ETHERSCAN_BASE_URL=https://api.etherscan.io/v2/api
 
+# Screening tuning
+SCREEN_TX_LIMIT=100          # txs fetched per address per Etherscan call
+MAX_HOPS=2                   # multi-hop BFS depth (2 or 3)
+
+# Multi-hop safety limits (prevent rate-limit explosion)
+MAX_VISITED_ADDRESSES=200
+MAX_COUNTERPARTIES_PER_ADDRESS=80
+MAX_ETHERSCAN_CALLS=20
+TIMEOUT_MS=15000
+
 # Optional
-SCREEN_TX_LIMIT=100
 DEBUG_SQL=false
 ```
 
@@ -111,14 +120,28 @@ Stop-Process -Name node -Force
 - **blacklist_wallets** — known bad addresses with category and optional note
 - **screening_logs** — one row per screening run; includes direct_match, one_hop_match, details (JSONB)
 
-## Screening logic (Stage 2)
+## Screening logic (Stage 3)
 
-1. **Direct match** — wallet address found in `blacklist_wallets` → status `blacklisted`
-2. **One-hop match** — any counterparty of the wallet's txs (normal + token) found in `blacklist_wallets` → status `flagged`; matched addresses shown in detail page
-3. **Heuristics** — outgoing burst (>=10 tx in 30 min) or many counterparties (>=25) → status `flagged`
-4. **Clean** — none of the above
+1. **Direct match** — wallet address in `blacklist_wallets` → `blacklisted`
+2. **One-hop match** — any direct counterparty (normal + token txs) in `blacklist_wallets` → `flagged`
+3. **Multi-hop match** — BFS across counterparty graph up to `MAX_HOPS` (default 2) deep; first blacklisted address found → `flagged` with full path shown in UI
+4. **Heuristics** — outgoing burst (≥10 tx in 30 min) or many counterparties (≥25) → `flagged`
+5. **Clean** — none of the above
 
+Priority: direct > one-hop > multi-hop > heuristics.
 Re-submitting an existing wallet re-runs screening and updates its status.
+
+### Multi-hop safety limits
+
+| Env var | Default | Effect |
+|---------|---------|--------|
+| `MAX_HOPS` | 2 | BFS depth limit (set 3 for 3-hop) |
+| `MAX_VISITED_ADDRESSES` | 200 | Stop BFS after visiting this many addresses |
+| `MAX_COUNTERPARTIES_PER_ADDRESS` | 80 | Truncate counterparty list per hop address |
+| `MAX_ETHERSCAN_CALLS` | 20 | Max Etherscan calls during BFS |
+| `TIMEOUT_MS` | 15000 | Max milliseconds for BFS per screening |
+
+If limits stop the search before a match, `details.multi_hop.partial=true` and `stop_reason` is recorded in the screening log. App never crashes on limit hits.
 
 ## Debug mode
 
@@ -127,9 +150,20 @@ Set `DEBUG_SQL=true` in `.env` to log full DB error details (code, constraint, h
 ## Manual test checklist
 
 ```
-1. Screen a clean wallet → CLEAN, One-Hop: No
-2. Add a counterparty address to blacklist, re-screen the wallet that interacted with it → FLAGGED, One-Hop: Yes, matched address listed
-3. Screen same wallet twice → second screen succeeds (no duplicate error), status updated
+Stage 2
+1. Screen a clean wallet → CLEAN, One-Hop: No, Multi-Hop: No
+2. Add a direct counterparty to blacklist, re-screen → FLAGGED, One-Hop: Yes
+3. Screen same wallet twice → second screen succeeds, status updated
 4. GET /health → {"ok":true,"db":true}
 5. Submit invalid address → clear error message on dashboard
+
+Stage 3 — multi-hop
+A. Screen a wallet with no txs → CLEAN, Multi-Hop: No, partial=false
+B. Identify a hop-2 address (counterparty of a counterparty); add it to blacklist;
+   re-screen → FLAGGED, Multi-Hop: Yes (depth 2), path shown in UI
+C. Set MAX_ETHERSCAN_CALLS=1 and screen a busy wallet →
+   Multi-Hop: No, partial=true, stop_reason=etherscan_call_limit shown in UI
+
+PowerShell — set env vars for one run without editing .env:
+  $env:MAX_HOPS=3; $env:MAX_ETHERSCAN_CALLS=1; npm run dev
 ```
