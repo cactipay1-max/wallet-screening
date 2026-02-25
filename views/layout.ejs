@@ -149,6 +149,33 @@
       cursor: pointer;
     }
     .btn-danger:hover { background: #fee2e2; border-color: #b91c1c; }
+
+    /* ── Address pill ─────────────────────────────── */
+    .addr-pill {
+      display: inline-block;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 2px 7px;
+      color: #111;
+      word-break: break-all;
+      vertical-align: middle;
+      user-select: text;
+      text-decoration: none;
+    }
+    a.addr-pill { color: #111; text-decoration: none; }
+    a.addr-pill:hover { background: #eef2ff; border-color: #c7d2fe; text-decoration: none; }
+
+    /* ── Hop Detection paths ──────────────────────── */
+    .hop-paths { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+    .hop-path { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+    .hop-arrow { color: #9ca3af; font-size: 13px; flex-shrink: 0; }
+    .hop-counts { margin-top: 6px; font-size: 11px; }
+
+    /* ── Extra badges ─────────────────────────────── */
+    .badge-inconclusive { background: #fef3c7; color: #92400e; }
   </style>
 </head>
 <body>
