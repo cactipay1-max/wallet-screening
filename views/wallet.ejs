@@ -1,3 +1,8 @@
+<style>
+.badge-inconclusive{background:#fef3c7;color:#92400e}
+.hop-addr{color:inherit;text-decoration:underline;text-decoration-style:dotted;word-break:break-all}
+.hop-addr:hover{text-decoration:underline}
+</style>
 <p style="margin-bottom:16px"><a href="/">&larr; Back to Dashboard</a></p>
 
 <% if (error) { %>
@@ -79,31 +84,51 @@
         <% } %>
       </dd>
 
-      <dt>One-Hop Match</dt>
+      <%
+        const hopPaths = Array.isArray(d.paths) ? d.paths : [];
+        const hopHit   = hopPaths.length > 0 ? hopPaths[0].hop : 0;
+        const hop1Chk  = d.hop1_checked != null ? d.hop1_checked : '—';
+        const hop2Chk  = d.hop2_checked != null ? d.hop2_checked : '—';
+      %>
+      <dt>Hop Detection</dt>
       <dd>
-        <% if (log.one_hop_match) { %>
-          <span class="badge badge-flagged">Yes</span>
-          <%
-            const oneHopMatches = Array.isArray(d.one_hop_matches) ? d.one_hop_matches : [];
-          %>
-          <% if (oneHopMatches.length > 0) { %>
-            <ul style="margin:8px 0 0;padding-left:18px;list-style:disc">
-              <% oneHopMatches.forEach(function(m) { %>
-              <li style="margin-bottom:4px">
-                <span class="mono"><%= m.address %></span>
-                <% if (m.category) { %>
-                  &nbsp;<span class="badge badge-blacklisted"><%= m.category %></span>
-                <% } %>
-                <% if (m.note) { %>
-                  &nbsp;<span class="meta"><%= m.note %></span>
-                <% } %>
-              </li>
-              <% }); %>
-            </ul>
-          <% } %>
+        <% if (d.rate_limited) { %>
+          <span class="badge badge-inconclusive">inconclusive</span>
+          <span class="meta">&nbsp;rate limited at&nbsp;<%= d.where || 'screening' %></span>
+        <% } else if (hopHit === 0) { %>
+          <span class="badge badge-clean">none</span>
         <% } else { %>
-          <span class="badge badge-clean">No</span>
+          <span class="badge badge-flagged"><%= hopHit %>-hop</span>
+          <ul style="margin:6px 0 0;padding:0;list-style:none;font-size:12px">
+            <% hopPaths.slice(0, 3).forEach(function(p) { %>
+              <li style="margin-bottom:4px;word-break:break-all">
+                <% if (wallet.chain === 'ethereum') { %>
+                  <a class="mono hop-addr" href="https://etherscan.io/address/<%= p.from||'' %>" target="_blank" rel="noopener noreferrer"><%= p.from||'' %></a>
+                <% } else { %>
+                  <span class="mono"><%= p.from||'' %></span>
+                <% } %>
+                <% if (p.hop === 2) { %>
+                  &nbsp;→&nbsp;
+                  <% if (wallet.chain === 'ethereum') { %>
+                    <a class="mono hop-addr" href="https://etherscan.io/address/<%= p.via||'' %>" target="_blank" rel="noopener noreferrer"><%= p.via||'' %></a>
+                  <% } else { %>
+                    <span class="mono"><%= p.via||'' %></span>
+                  <% } %>
+                <% } %>
+                &nbsp;→&nbsp;
+                <% if (wallet.chain === 'ethereum') { %>
+                  <a href="https://etherscan.io/address/<%= p.hit||'' %>" target="_blank" rel="noopener noreferrer" class="hop-addr">
+                    <span class="mono badge badge-blacklisted" style="font-size:10px;letter-spacing:0"><%= p.hit||'' %></span>
+                  </a>
+                <% } else { %>
+                  <span class="mono badge badge-blacklisted" style="font-size:10px;letter-spacing:0"><%= p.hit||'' %></span>
+                <% } %>
+                <% if (p.category) { %>&nbsp;<span class="badge badge-blacklisted"><%= p.category %></span><% } %>
+              </li>
+            <% }); %>
+          </ul>
         <% } %>
+        <br/><span class="meta" style="font-size:11px">hop1 checked:&nbsp;<%= hop1Chk %>&nbsp;&nbsp;hop2 checked:&nbsp;<%= hop2Chk %></span>
       </dd>
 
       <% if (d.txs_count !== undefined) { %>
@@ -112,14 +137,6 @@
 
       <dt>Outgoing / Incoming</dt>
       <dd><%= d.outgoing_count %> / <%= d.incoming_count %></dd>
-
-      <dt>Counterparties</dt>
-      <dd>
-        <%= d.counterparties_total !== undefined ? d.counterparties_total : d.uniq_counterparties %> unique
-        <% if (d.counterparties_total !== undefined && d.uniq_counterparties !== d.counterparties_total) { %>
-          &nbsp;<span class="meta">(<%=  d.uniq_counterparties %> from normal txs)</span>
-        <% } %>
-      </dd>
       <% } else if (log.raw_tx_count !== null && log.raw_tx_count !== undefined) { %>
       <dt>Raw Tx Count</dt>
       <dd><%= log.raw_tx_count %></dd>
